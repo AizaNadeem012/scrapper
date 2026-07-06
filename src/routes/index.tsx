@@ -372,34 +372,34 @@ function Dashboard() {
                         setCountryQuery("");
                       }}
                     >
-                      <SelectTrigger id="country" className="mt-2 h-8 text-sm border-0 bg-transparent p-0 shadow-none focus:ring-0">
+                      <SelectTrigger id="country" className="mt-2 min-h-10 rounded-xl border border-slate-200/80 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm transition-colors focus:ring-0 focus-visible:ring-0 sm:h-8 sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="max-h-80 overflow-hidden">
-                        <div className="p-2">
+                      <SelectContent className="w-[min(92vw,24rem)] max-h-[70vh] overflow-hidden rounded-2xl border border-slate-200 bg-white p-0 shadow-xl">
+                        <div className="p-2.5">
                           <Input
                             placeholder="Filter countries..."
                             value={countryQuery}
                             onChange={(e) => setCountryQuery(e.target.value)}
-                            className="mb-2 h-8 text-sm"
+                            className="mb-2 h-9 text-sm"
                           />
                         </div>
-                        <div className="max-h-56 overflow-auto p-2">
-                          <div className="grid grid-cols-2 gap-1">
+                        <div className="max-h-[55vh] overflow-auto p-2">
+                          <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
                             {filteredCountries.map((c) => (
-                                  <SelectItem key={c.code} value={c.code} className="py-2 px-2">
-                                    <div className="flex items-center justify-between w-full">
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-lg leading-none">{getFlagEmoji(c.code)}</span>
-                                        <span className="text-sm">{highlightText(c.name, countryQuery)}</span>
-                                      </div>
-                                      <div className="ml-2">
-                                        <span className="text-[11px] rounded px-2 py-0.5 bg-slate-100/60 text-slate-700 dark:bg-slate-800/50 dark:text-slate-300">
-                                          {highlightText(c.code.toUpperCase(), countryQuery)}
-                                        </span>
-                                      </div>
-                                    </div>
-                                  </SelectItem>
+                              <SelectItem key={c.code} value={c.code} className="min-h-11 rounded-xl px-2 py-2.5 sm:px-2">
+                                <div className="flex w-full flex-wrap items-center justify-between gap-2">
+                                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                                    <span className="text-lg leading-none">{getFlagEmoji(c.code)}</span>
+                                    <span className="min-w-0 flex-1 truncate text-sm">
+                                      {highlightText(c.name, countryQuery)}
+                                    </span>
+                                  </div>
+                                  <span className="shrink-0 rounded-full bg-slate-100/80 px-2 py-0.5 text-[11px] font-medium text-slate-700 dark:bg-slate-800/50 dark:text-slate-300">
+                                    {highlightText(c.code.toUpperCase(), countryQuery)}
+                                  </span>
+                                </div>
+                              </SelectItem>
                             ))}
                           </div>
                         </div>
