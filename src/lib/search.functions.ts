@@ -164,20 +164,47 @@ async function firecrawlSearch(
   input: RunInput,
   page: number,
 ): Promise<FirecrawlWebResult[]> {
+  // Try providers in order: Brave → Firecrawl → DuckDuckGo → Fallback
+  
   if (isBraveSearchConfigured(process.env)) {
-    return braveSearch(keyword, input, page);
+    try {
+      return await braveSearch(keyword, input, page);
+    } catch (error) {
+      console.error("[Brave] failed, trying next provider", error);
+    }
+  }
+
+  if (isFirecrawlConfigured(process.env)) {
+    try {
+      return await firecrawlSearchInternal(keyword, input, page);
+    } catch (error) {
+      console.error("[Firecrawl] failed, trying next provider", error);
+    }
   }
 
   if (isDuckDuckGoAvailable()) {
-    return duckduckgoSmartSearch(keyword, input, page);
+    try {
+      return await duckduckgoSmartSearch(keyword, input, page);
+    } catch (error) {
+      console.error("[DuckDuckGo] failed, using fallback", error);
+    }
   }
 
-  if (!isFirecrawlConfigured(process.env)) {
-    return buildFallbackResults(keyword, input, page) as FirecrawlWebResult[];
-  }
+  return buildFallbackResults(keyword, input, page) as FirecrawlWebResult[];
+}
+
+async function firecrawlSearchInternal(
+  keyword: string,
+  input: RunInput,
+  page: number,
+): Promise<FirecrawlWebResult[]> {
 
   const lovableKey = process.env.LOVABLE_API_KEY || process.env.VITE_LOVABLE_API_KEY;
   const fcKey = process.env.FIRECRAWL_API_KEY || process.env.VITE_FIRECRAWL_API_KEY;
+
+  if (!fcKey) {
+    throw new Error("Firecrawl API key not configured");
+  }
 
   const body = {
     query: keyword,
@@ -189,13 +216,19 @@ async function firecrawlSearch(
     ...(page > 1 ? { limit: 10 * page } : {}),
   };
 
+  const headers: HeadersInit = {
+    "X-Connection-Api-Key": fcKey,
+    "Content-Type": "application/json",
+  };
+
+  // Only add Lovable auth if key is available
+  if (lovableKey) {
+    headers.Authorization = `Bearer ${lovableKey}`;
+  }
+
   const res = await fetch(`${GATEWAY_URL}/v2/search`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${lovableKey}`,
-      "X-Connection-Api-Key": fcKey,
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify(body),
   });
 

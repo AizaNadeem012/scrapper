@@ -1,7 +1,6 @@
 export function isFirecrawlConfigured(env = process.env) {
-  const lovableKey = env.LOVABLE_API_KEY || env.VITE_LOVABLE_API_KEY;
   const firecrawlKey = env.FIRECRAWL_API_KEY || env.VITE_FIRECRAWL_API_KEY;
-  return Boolean(lovableKey && firecrawlKey);
+  return Boolean(firecrawlKey);  // Only Firecrawl key needed
 }
 
 export function isBraveSearchConfigured(env = process.env) {
