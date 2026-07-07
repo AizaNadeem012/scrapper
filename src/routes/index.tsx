@@ -1,7 +1,7 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Loader2,
   Search,
@@ -19,6 +19,7 @@ import {
 
 import { supabase } from "@/integrations/supabase/client";
 import { runSearch, deleteRun } from "@/lib/search.functions";
+import { checkServerEnv } from "@/lib/env.functions";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -140,13 +141,20 @@ function Dashboard() {
   const runsQuery = useQuery({
     queryKey: ["runs"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("search_runs")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (error) throw error;
-      return (data ?? []) as Run[];
+      try {
+        const { data, error } = await supabase
+          .from("search_runs")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(100);
+        if (error) throw error;
+        return (data ?? []) as Run[];
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Failed to fetch runs (check server envs)"
+        );
+        return [] as Run[];
+      }
     },
     refetchInterval: 3000,
   });
@@ -206,6 +214,18 @@ function Dashboard() {
     () => runsQuery.data?.find((r) => r.id === selectedRunId) ?? null,
     [runsQuery.data, selectedRunId],
   );
+
+  const envCheckFn = useServerFn(checkServerEnv);
+  const [envStatus, setEnvStatus] = useState<{ ok: boolean; missing: string[] } | null>(null);
+  useEffect(() => {
+    let mounted = true;
+    envCheckFn().then((res) => {
+      if (mounted) setEnvStatus(res ?? null);
+    }).catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const totalCompletedRuns = runsQuery.data?.filter((r) => r.status === "completed").length ?? 0;
   const activeRuns = runsQuery.data?.filter((r) => r.status === "running").length ?? 0;
@@ -281,6 +301,28 @@ function Dashboard() {
       </header>
 
       <main className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-4 sm:px-6 sm:py-8">
+        {envStatus && !envStatus.ok && (
+          <div className="rounded-lg border border-yellow-400/40 bg-yellow-50/60 p-4 text-sm text-yellow-900 dark:bg-yellow-900/10 dark:text-yellow-300">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <strong>Warning:</strong> Missing server environment variables — some live features may be disabled.
+                <div className="mt-1 text-xs text-muted-foreground">
+                  Missing: {envStatus.missing.join(", ")}
+                </div>
+              </div>
+              <div className="shrink-0">
+                <a
+                  href="https://vercel.com/docs/environment-variables"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="rounded-md bg-yellow-400/90 px-3 py-1 text-xs font-semibold text-black"
+                >
+                  Fix on Vercel
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
         <section className="overflow-hidden rounded-[30px] border border-white/70 bg-white/70 p-4 shadow-[0_28px_90px_-40px_rgba(61,91,131,0.55)] backdrop-blur-xl sm:p-6 lg:p-8 dark:border-slate-800/70 dark:bg-slate-900/70">
           <div className="grid gap-6 xl:grid-cols-[1.02fr_0.98fr]">
             <div className="max-w-2xl">
