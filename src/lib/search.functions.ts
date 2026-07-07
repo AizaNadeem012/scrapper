@@ -164,32 +164,29 @@ async function firecrawlSearch(
   input: RunInput,
   page: number,
 ): Promise<FirecrawlWebResult[]> {
-  // Try providers in order: Brave → Firecrawl → DuckDuckGo → Fallback
+  // Try providers in order: Brave → DuckDuckGo → Fallback
+  // Note: Firecrawl gateway requires Lovable API key, not just Firecrawl key - skipping for now
+  console.log(`[Search] Starting search for keyword: "${keyword}", Brave: ${isBraveSearchConfigured(process.env)}`);
   
   if (isBraveSearchConfigured(process.env)) {
     try {
+      console.log("[Search] Trying Brave Search...");
       return await braveSearch(keyword, input, page);
     } catch (error) {
       console.error("[Brave] failed, trying next provider", error);
     }
   }
 
-  if (isFirecrawlConfigured(process.env)) {
-    try {
-      return await firecrawlSearchInternal(keyword, input, page);
-    } catch (error) {
-      console.error("[Firecrawl] failed, trying next provider", error);
-    }
-  }
-
   if (isDuckDuckGoAvailable()) {
     try {
+      console.log("[Search] Trying DuckDuckGo...");
       return await duckduckgoSmartSearch(keyword, input, page);
     } catch (error) {
       console.error("[DuckDuckGo] failed, using fallback", error);
     }
   }
 
+  console.warn("[Search] All providers failed, returning fallback results");
   return buildFallbackResults(keyword, input, page) as FirecrawlWebResult[];
 }
 
@@ -201,6 +198,8 @@ async function firecrawlSearchInternal(
 
   const lovableKey = process.env.LOVABLE_API_KEY || process.env.VITE_LOVABLE_API_KEY;
   const fcKey = process.env.FIRECRAWL_API_KEY || process.env.VITE_FIRECRAWL_API_KEY;
+
+  console.log(`[Firecrawl] Keys available - Lovable: ${!!lovableKey}, Firecrawl: ${!!fcKey}`);
 
   if (!fcKey) {
     throw new Error("Firecrawl API key not configured");
@@ -226,11 +225,15 @@ async function firecrawlSearchInternal(
     headers.Authorization = `Bearer ${lovableKey}`;
   }
 
+  console.log(`[Firecrawl] Sending request to ${GATEWAY_URL}/v2/search for "${keyword}"`);
+
   const res = await fetch(`${GATEWAY_URL}/v2/search`, {
     method: "POST",
     headers,
     body: JSON.stringify(body),
   });
+
+  console.log(`[Firecrawl] Response status: ${res.status}`);
 
   if (!res.ok) {
     const errBody = await res.text();
@@ -244,6 +247,8 @@ async function firecrawlSearchInternal(
     web?: FirecrawlWebResult[];
     error?: string;
   };
+
+  console.log(`[Firecrawl] Response success: ${json.success}, data length: ${Array.isArray(json.data) ? json.data.length : (json.data?.web?.length ?? 0)}`);
 
   if (json.success === false) throw new Error(json.error ?? "Firecrawl returned failure");
 
