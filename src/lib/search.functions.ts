@@ -103,33 +103,38 @@ async function duckduckgoSearch(keyword: string, input: RunInput, page: number):
   if (!isDuckDuckGoAvailable()) return [];
 
   const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(keyword)}&kl=${encodeURIComponent(input.country.toLowerCase())}`;
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0",
-      Accept: "text/html",
-    },
-  });
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        Accept: "text/html",
+      },
+    });
 
-  if (!res.ok) {
-    const errBody = await res.text();
-    console.error(`[DuckDuckGo] ${res.status}: ${errBody}`);
-    throw new Error(`DuckDuckGo search failed [${res.status}]: ${errBody.slice(0, 300)}`);
+    if (!res.ok) {
+      const errBody = await res.text();
+      console.error(`[DuckDuckGo] ${res.status}: ${errBody}`);
+      return buildFallbackResults(keyword, input, page) as FirecrawlWebResult[];
+    }
+
+    const html = await res.text();
+    const results = Array.from(html.matchAll(/<a rel="nofollow" class="result__a" href="(.*?)".*?>(.*?)<\/a>/gs)).map((match) => ({
+      url: match[1]?.replace(/&amp;/g, "&"),
+      title: match[2]?.replace(/<.*?>/g, "").trim(),
+    }));
+
+    const prioritized = prioritizeResults(results, keyword);
+    const pageSlice = prioritized.slice((page - 1) * 10, page * 10);
+    return pageSlice.map((r, index) => ({
+      title: r.title,
+      url: r.url,
+      description: "Free DuckDuckGo result",
+      position: (page - 1) * 10 + index + 1,
+    }));
+  } catch (error) {
+    console.error(`[DuckDuckGo] request failed`, error);
+    return buildFallbackResults(keyword, input, page) as FirecrawlWebResult[];
   }
-
-  const html = await res.text();
-  const results = Array.from(html.matchAll(/<a rel="nofollow" class="result__a" href="(.*?)".*?>(.*?)<\/a>/gs)).map((match) => ({
-    url: match[1]?.replace(/&amp;/g, "&"),
-    title: match[2]?.replace(/<.*?>/g, "").trim(),
-  }));
-
-  const prioritized = prioritizeResults(results, keyword);
-  const pageSlice = prioritized.slice((page - 1) * 10, page * 10);
-  return pageSlice.map((r, index) => ({
-    title: r.title,
-    url: r.url,
-    description: "Free DuckDuckGo result",
-    position: (page - 1) * 10 + index + 1,
-  }));
 }
 
 async function duckduckgoSmartSearch(keyword: string, input: RunInput, page: number): Promise<FirecrawlWebResult[]> {
