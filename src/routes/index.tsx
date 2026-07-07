@@ -15,6 +15,7 @@ import {
   MonitorSmartphone,
   Zap,
   ArrowRight,
+  ExternalLink,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -659,39 +660,53 @@ function Dashboard() {
                 </div>
               )}
               {selectedRun && resultsQuery.data && resultsQuery.data.length > 0 && (
-                <div className="overflow-hidden rounded-xl border border-border/60">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">#</TableHead>
-                        <TableHead>Result</TableHead>
-                        <TableHead className="w-40">Domain</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {resultsQuery.data.map((r) => (
-                        <TableRow key={r.id}>
-                          <TableCell className="text-muted-foreground">{r.position}</TableCell>
-                          <TableCell>
-                            <a
-                              href={r.url ?? "#"}
-                              target="_blank"
-                              rel="noreferrer noopener"
-                              className="font-medium text-primary hover:underline"
-                            >
-                              {r.title || r.url}
-                            </a>
-                            <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
-                              {r.description}
-                            </p>
-                          </TableCell>
-                          <TableCell className="text-xs text-muted-foreground">
-                            {r.domain}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-foreground">
+                      Results for <span className="text-primary">"{selectedRun.keyword}"</span>
+                    </h3>
+                    <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
+                      {resultsQuery.data.length} results
+                    </span>
+                  </div>
+                  <div className="grid gap-2">
+                    {resultsQuery.data.map((r) => (
+                      <a
+                        key={r.id}
+                        href={r.url ?? "#"}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="group rounded-lg border border-border/40 bg-card/50 p-4 transition-all hover:border-primary/60 hover:bg-primary/5 hover:shadow-md"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary flex-shrink-0">
+                                {r.position}
+                              </span>
+                              <h4 className="line-clamp-2 font-medium text-foreground group-hover:text-primary group-hover:underline">
+                                {r.title || r.url || "Untitled"}
+                              </h4>
+                            </div>
+                            {r.description && (
+                              <p className="mt-2 line-clamp-1 text-xs text-muted-foreground">
+                                {r.description}
+                              </p>
+                            )}
+                            <div className="mt-2 flex items-center gap-2">
+                              <span className="inline-block rounded-md bg-slate-100/50 px-2 py-1 text-xs font-medium text-slate-700 dark:bg-slate-800/50 dark:text-slate-300">
+                                {r.domain}
+                              </span>
+                              <span className="text-xs text-muted-foreground opacity-60">
+                                {new URL(r.url || "#").hostname}
+                              </span>
+                            </div>
+                          </div>
+                          <ExternalLink className="h-4 w-4 flex-shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      </a>
+                    ))}
+                  </div>
                 </div>
               )}
               {selectedRun && (!resultsQuery.data || resultsQuery.data.length === 0) && selectedRun.status !== "running" && selectedRun.status !== "failed" && (

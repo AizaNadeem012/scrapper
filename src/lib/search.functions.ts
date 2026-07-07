@@ -43,21 +43,79 @@ function normalizeText(s?: string | null) {
 
 function isListicleTitle(title?: string | null) {
   if (!title) return false;
-  return /(^|\b)(top\s*\d+|best|10 best|top 10|top\s+\d+|list of|best of)\b/i.test(title);
+  return /(^|\b)(top\s*\d+|best|10 best|top 10|top\s+\d+|list of|best of|how to|guide|tutorial)\b/i.test(title);
+}
+
+function isUnwantedDomain(domain?: string | null) {
+  if (!domain) return false;
+  const unwanted = [
+    "wikipedia",
+    "quora",
+    "reddit",
+    "medium",
+    "youtube",
+    "instagram",
+    "facebook",
+    "twitter",
+    "pinterest",
+    "tiktok",
+    "wikidata",
+    "britannica",
+    "healthline",
+  ];
+  return unwanted.some((u) => domain.includes(u));
+}
+
+function isBusiness(title?: string | null, domain?: string | null) {
+  if (!title || !domain) return false;
+  // Check for business indicators in title
+  const businessKeywords = [
+    "shop",
+    "store",
+    "cafe",
+    "café",
+    "restaurant",
+    "menu",
+    "order",
+    "delivery",
+    "booking",
+    "reserve",
+    "address",
+    "near",
+    "location",
+    "hours",
+    "phone",
+  ];
+  return businessKeywords.some((k) => title.toLowerCase().includes(k));
 }
 
 function prioritizeResults(results: Array<FirecrawlWebResult>, keyword: string) {
   const k = normalizeText(keyword);
   return results
+    .filter((r) => !isUnwantedDomain(r.url))
     .map((r) => {
       const domain = extractDomain(r.url) ?? "";
       const title = normalizeText(r.title);
       let score = 0;
+
+      // Business indicators
+      if (isBusiness(r.title, domain)) score += 50;
+
+      // Title match
       if (title.includes(k)) score += 30;
-      if (domain.includes(k.replace(/\s+/g, ""))) score += 40; // domain match (joined)
-      if (isListicleTitle(r.title)) score -= 20; // demote listicles
-      // shorter url/domain tends to be brand sites; small bonus
-      if (domain && domain.length < 20) score += 5;
+
+      // Domain match
+      if (domain.includes(k.replace(/\s+/g, ""))) score += 40;
+
+      // Penalize listicles and generic content
+      if (isListicleTitle(r.title)) score -= 30;
+
+      // Shorter domain = likely brand/business site
+      if (domain && domain.length < 20) score += 20;
+
+      // Penalize long titles (often listicles/generic)
+      if ((r.title?.length ?? 0) > 80) score -= 10;
+
       return { r, score };
     })
     .sort((a, b) => b.score - a.score)
@@ -138,12 +196,26 @@ async function duckduckgoSearch(keyword: string, input: RunInput, page: number):
 }
 
 async function duckduckgoSmartSearch(keyword: string, input: RunInput, page: number): Promise<FirecrawlWebResult[]> {
-  // First try the normal query
-  const first = await duckduckgoSearch(keyword, input, page);
-  // If many of the top results look like listicles, retry with a focused 'official site' query
+  // First try a business-focused search
+  let searchQuery = keyword;
+  
+  // Add business indicators to search
+  const businessModifiers = [keyword, "near me", "local", "shop", "store", "restaurant", "cafe"];
+  const businessSearch = `${businessModifiers.join(" OR ")}`;
+  
+  // Try the business search first
+  let first = await duckduckgoSearch(businessSearch, input, page);
+  
+  // If results look generic, try keyword alone
+  if (first.length === 0 || first.every(r => isListicleTitle(r.title))) {
+    first = await duckduckgoSearch(keyword, input, page);
+  }
+  
+  // If many of the top results look like listicles, retry with official site query
   const listicleCount = first.slice(0, 6).filter((r) => isListicleTitle(r.title)).length;
   if (listicleCount >= 3) {
-    const boosted = await duckduckgoSearch(`${keyword} official site`, input, page);
+    const boosted = await duckduckgoSearch(`${keyword} site:*.com`, input, page);
+    
     // Merge: prefer boosted results first, then fall back to original, dedupe by URL
     const seen = new Set<string>();
     const merged: FirecrawlWebResult[] = [];
