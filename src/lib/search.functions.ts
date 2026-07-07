@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { getSupabasePublishableKey, getSupabaseUrl } from "@/integrations/supabase/env";
 import type { Database } from "@/integrations/supabase/types";
 import { buildFallbackResults, isBraveSearchConfigured, isDuckDuckGoAvailable, isFirecrawlConfigured } from "./search.demo";
 
@@ -17,9 +18,12 @@ const runInputSchema = z.object({
 type RunInput = z.infer<typeof runInputSchema>;
 
 function serverSupabase() {
+  const supabaseUrl = getSupabaseUrl();
+  const supabaseKey = getSupabasePublishableKey();
+
   return createClient<Database>(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_PUBLISHABLE_KEY!,
+    supabaseUrl,
+    supabaseKey,
     { auth: { storage: undefined, persistSession: false, autoRefreshToken: false } },
   );
 }
